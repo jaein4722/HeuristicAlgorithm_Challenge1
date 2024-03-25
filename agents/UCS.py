@@ -59,27 +59,28 @@ class Agent:  # Do not change the name of this class!
             # If it is the game end, then read action sequences by back-tracing the actions.
             if board.is_game_end():
                 return _make_action_sequence(state)
+            
             # Build applicable actions
             possible_actions = []
             
-            # 4) TRADE
-            possible_actions += [(3, TRADE(r, r2))
-                                  for r in RESOURCES
-                                  if board.get_trading_rate(r) > 0
-                                  for r2 in RESOURCES
-                                  if r != r2]
-            
-            # 3) PASS
-            possible_actions += [(4, PASS())]
-            
-            # 2) ROAD
-            possible_actions += [(2, ROAD(road))
-                                 for road in board.get_applicable_roads()]
-
             # 1) UPGRADE - 업그레이드 한번 했으면, 더이상 업그레이드 안할거임
             if len(board.get_applicable_cities()) > 1 :
                 possible_actions += [(1, UPGRADE(v))
                                     for v in board.get_applicable_cities()]
+                
+            # 2) ROAD
+            possible_actions += [(2, ROAD(road))
+                                 for road in board.get_applicable_roads()]
+            
+            # 3) PASS
+            possible_actions += [(4, PASS())]
+            
+            # # 4) TRADE
+            # possible_actions += [(3, TRADE(r, r2))
+            #                       for r in RESOURCES
+            #                       if board.get_trading_rate(r) > 0
+            #                       for r2 in RESOURCES
+            #                       if r != r2]
             
             # # 5) VILLAGE - 마을 안지을거임 ㅅㄱ
             # possible_actions += [VILLAGE(v)
