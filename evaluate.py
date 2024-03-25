@@ -17,6 +17,9 @@ from time import time, sleep
 # Package for writing exceptions
 from traceback import format_exc
 
+# Memory usage tracking function
+import psutil as pu
+
 # Package for problem definitions
 from board import *
 # Function for loading your agents
@@ -28,6 +31,8 @@ MEGABYTES = 1024 ** 2
 GAMES = 5
 #: LIMIT FOR A SINGLE EXECUTION, 60 minutes
 TIME_LIMIT = 1000 * 60 * 60
+#: LIMIT OF MEMORY USAGE, 4GB
+MEMORY_LIMIT = 4 * 1024 * MEGABYTES
 
 # Set a random seed
 random.seed(5606)
@@ -75,8 +80,10 @@ def evaluate_algorithm(agent_name, initial_state, result_queue: Queue):
         failure = format_exc()
 
     # Get maximum memory usage during search (Performance measure II)
-    max_memory_usage = int(max(0, problem.get_max_memory_usage() - init_memory) / MEGABYTES)
+    max_memory_usage = int(max(0, problem.get_max_memory_usage() - init_memory) / MEGABYTES / 10) * 10
     logger.info(f'Search finished for {agent_name}, using {max_memory_usage}MB during search.')
+    # Ignore memory usage below 200MB.
+    max_memory_usage = max(200, max_memory_usage)
 
     # Execute the solution for evaluation
     if solution is not None:
@@ -236,7 +243,18 @@ if __name__ == '__main__':
                     logging.info(f'[TIMEOUT] {p.agent} / '
                                  f'Process is running more than {TIME_LIMIT} sec, from ts={begin}; now={time()}')
                 else:
-                    new_proc_list.append((p, begin))
+                    try:
+                        p_bytes = pu.Process(p.pid).memory_info().rss
+                        if p_bytes > MEMORY_LIMIT:
+                            p.terminate()
+                            exceed_limit[p.alg_id] = \
+                                f'Process consumed memory more than {MEMORY_LIMIT / MEGABYTES}MB (used: {p_bytes / MEGABYTES}MB)'
+                            logging.info(f'[MEM LIMIT] {p.alg_id} / '
+                                         f'Process consumed memory more than {MEMORY_LIMIT / MEGABYTES}MB (used: {p_bytes / MEGABYTES}MB)')
+                        else:
+                            new_proc_list.append((p, begin))
+                    except pu.NoSuchProcess:
+                        new_proc_list.append((p, begin))
 
             # Prepare for the next round
             processes = new_proc_list
