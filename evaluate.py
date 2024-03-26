@@ -247,9 +247,9 @@ if __name__ == '__main__':
                         p_bytes = pu.Process(p.pid).memory_info().rss
                         if p_bytes > MEMORY_LIMIT:
                             p.terminate()
-                            exceed_limit[p.alg_id] = \
+                            exceed_limit[p.agent] = \
                                 f'Process consumed memory more than {MEMORY_LIMIT / MEGABYTES}MB (used: {p_bytes / MEGABYTES}MB)'
-                            logging.info(f'[MEM LIMIT] {p.alg_id} / '
+                            logging.info(f'[MEM LIMIT] {p.agent} / '
                                          f'Process consumed memory more than {MEMORY_LIMIT / MEGABYTES}MB (used: {p_bytes / MEGABYTES}MB)')
                         else:
                             new_proc_list.append((p, begin))
