@@ -49,6 +49,7 @@ class Agent:  # Do not change the name of this class!
         initial_state = board.get_initial_state()
         frontier.put(Priority(0, initial_state))
         reached = {initial_state['state_id']: 0}
+        escaping_routes = 10
 
         # Until the frontier is nonempty,
         while not frontier.empty():
@@ -63,10 +64,15 @@ class Agent:  # Do not change the name of this class!
             # Build applicable actions
             possible_actions = []
             
-            # 1) UPGRADE - 업그레이드 한번 했으면, 더이상 업그레이드 안할거임
-            if len(board.get_applicable_cities()) > 1 :
+            # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출
+            if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
                 possible_actions += [(1, UPGRADE(v))
                                     for v in board.get_applicable_cities()]
+                
+            # 2) VILLAGE - 역시 10 이상일 시 탈출을 위함
+            if board.get_longest_route() >= escaping_routes:
+                possible_actions += [(1, VILLAGE(v))
+                                    for v in board.get_applicable_villages()]
                 
             # 2) ROAD
             possible_actions += [(2, ROAD(road))
@@ -75,16 +81,12 @@ class Agent:  # Do not change the name of this class!
             # 3) PASS
             possible_actions += [(4, PASS())]
             
-            # # 4) TRADE
-            # possible_actions += [(3, TRADE(r, r2))
-            #                       for r in RESOURCES
-            #                       if board.get_trading_rate(r) > 0
-            #                       for r2 in RESOURCES
-            #                       if r != r2]
-            
-            # # 5) VILLAGE - 마을 안지을거임 ㅅㄱ
-            # possible_actions += [VILLAGE(v)
-            #                      for v in board.get_applicable_villages()]
+            # 4) TRADE - WOOD, BRICK으로의 교환만 생각할것임
+            possible_actions += [(3, TRADE(r, r2))
+                                  for r in RESOURCES
+                                  if board.get_trading_rate(r) > 0
+                                  for r2 in ['LUMBER', 'BRICK']
+                                  if r != r2]
 
             # Expand next states
             for cost, action in possible_actions:

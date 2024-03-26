@@ -1,3 +1,22 @@
+# Modifications (03/25)
+
+- The program should use lower than 4GB in total, including your program code on the memory. For your information: when I tested with `default.py`, the memory usage after initial loading is 22MB.
+
+   프로그램은 (여러분의 코드를 포함) 최대 4GB까지 메모리를 사용할 수 있습니다. 참고로, `default.py`로 테스트했을 때, 상태 초기화 후 메모리 사용량은 22MB였습니다. 
+
+- The position of hexes and harbors will be initialized as a beginner's board, not a random board.
+
+   육각형 판과 항구의 배치는 랜덤 배치가 아닌 초심자용 배치를 따릅니다.
+
+- The game environment ends when your score reaches 4 points.
+  But, the victory points (2 points) given to the longest route owner is ignored.
+
+    여러분의 점수가 4점이 되는 순간, 게임은 끝이 납니다.
+    단, 최장교역로 소유자에게 지급되는 2점 승점은 무시됩니다.
+
+
+----
+
 # CAU56753 Challenge I: Route Search
 
 ## Problem definition / 문제정의
@@ -45,11 +64,20 @@ Presented in the order of importance in evaluation.
 
 **참고**: 평가 프로그램이 여러분 코드의 평가 결과를 수행지표 순서대로 정렬하여 표 형태로 표시해줄 예정입니다. 그리고, 알고리즘의 탐색 절차는 50분 이내에 끝나야 합니다.
 
+**Note**: (Added on 03/25) The program should use lower than 4GB in total, including your program code on the memory. For your information: when I tested with `default.py`, the memory usage after initial loading is 22MB.
+
+**참고**: (03/25 추가) 프로그램은 (여러분의 코드를 포함) 최대 4GB까지 메모리를 사용할 수 있습니다. 참고로, `default.py`로 테스트했을 때, 상태 초기화 후 메모리 사용량은 22MB였습니다. 
+
+
 #### Environment (환경)
 
 You're a player in the Settlers of Catan world. You already have two village and two path blocks on the board. Now, suppose these things for simplicity.
 
+**(Added on 03/25) The position of hexes and harbors will be initialized as a beginner's board, not a random board.**
+
 여러분은 카탄 게임의 플레이어입니다. 이미 여러분은 두개의 마을과 2개의 도로 블록을 판 위에 가지고 있습니다. 이제, 문제를 단순하게 하기 위해서 다음을 가정해봅시다.
+
+**(03/25 추가) 육각형 판과 항구의 배치는 랜덤 배치가 아닌 초심자용 배치를 따릅니다.**
 
 1. Other players will do nothing in the game until the game ends.
 
@@ -72,8 +100,10 @@ You're a player in the Settlers of Catan world. You already have two village and
     사용가능한 블록의 개수가 제한됩니다: 3개의 마을, 3개의 도시, 10개의 도로 블록.
 
 6. The game environment ends when your score reaches 4 points.
+   (Added 03/25) But, the victory points (2 points) given to the longest route owner is ignored.
 
     여러분의 점수가 4점이 되는 순간, 게임은 끝이 납니다.
+    (03/25 추가) 단, 최장교역로 소유자에게 지급되는 2점 승점은 무시됩니다.
 
 In terms of seven characteristics, the game can be classified as:
 
@@ -143,9 +173,9 @@ You can take one of the following actions.
 
   특정한 꼭짓점 `v`에 마을 짓기
 
-  Here, the list of applicable nodes will be given by the board. The list may be empty if you reached the maximum number of villages, i.e., five.
+  Here, the list of applicable nodes will be given by the board. The list may be empty if you reached the maximum number of villages, i.e., three.
 
-  마을 짓기가 가능한 꼭짓점의 목록은 board가 제공합니다. 단, 가능한 마을의 수가 최대치인 5개에 도달한 경우, 목록은 빈 리스트로 제공될 수 있습니다.
+  마을 짓기가 가능한 꼭짓점의 목록은 board가 제공합니다. 단, 가능한 마을의 수가 최대치인 3개에 도달한 경우, 목록은 빈 리스트로 제공될 수 있습니다.
 
 - **UPGRADE(v)**: Upgrade a village at `v` to a city.
 

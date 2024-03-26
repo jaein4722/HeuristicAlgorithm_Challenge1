@@ -12,7 +12,7 @@ from typing import Tuple, List, Dict
 
 # Import some class definitions that implements the Settlers of Catan game.
 from pycatan import Game, Resource
-from pycatan.board import RandomBoard, BuildingType, Building, BoardRenderer
+from pycatan.board import BeginnerBoard, BuildingType, Building, BoardRenderer
 
 # Process information class: for memory usage tracking
 from psutil import Process as PUInfo, NoSuchProcess
@@ -25,12 +25,18 @@ from util import tuple_to_coordinate, count_building, coordinate_to_tuple, tuple
 
 #: True if the program run with 'DEBUG' environment variable.
 IS_DEBUG = '--debug' in sys.argv
+IS_RUN = 'fixed_evaluation' in sys.argv[0]
+
 # Initialize logger
-logging.basicConfig(level=logging.DEBUG if IS_DEBUG else logging.INFO,
-                    format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s',
-                    filename=f'execution-{os.getpid()}.log',
-                    # Also, the output will be logged in 'execution-(pid).log' file.
-                    filemode='w+')  # The logging file will be overwritten.
+if not IS_RUN:
+    logging.basicConfig(level=logging.DEBUG if IS_DEBUG else logging.INFO,
+                        format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s',
+                        filename=f'execution-{os.getpid()}.log',
+                        # Also, the output will be logged in 'execution-(pid).log' file.
+                        filemode='w+')  # The logging file will be overwritten.
+else:
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s')
 
 
 # String List of available resources
@@ -239,7 +245,7 @@ class GameBoard:
         if IS_DEBUG:  # Logging for debug
             self._logger.debug('Initializing a new game board...')
         # Initialize a new game board
-        self._game = Game(RandomBoard())
+        self._game = Game(BeginnerBoard())
         # Initialize board renderer for debugging purposes
         if IS_DEBUG:  # Logging for debug
             self._renderer = BoardRenderer(self._game.board)
@@ -349,7 +355,9 @@ class GameBoard:
         :param state: A state to check. If None, then it will use the initial state.
         :return: True if the game ends at the given state
         """
-        is_game_end = self._game.get_victory_points(self._game.players[self._player_number]) >= 4
+        player = self._game.players[self._player_number]
+        adjustment = -2 if player is self._game.longest_road_owner else 0
+        is_game_end = self._game.get_victory_points(player) + adjustment >= 4
         if IS_DEBUG:  # Logging for debug
             self._logger.debug(f'Querying whether the game ends in this state... Answer = {is_game_end}')
         return is_game_end
