@@ -63,7 +63,7 @@ def evaluate_algorithm(agent_name, initial_state, result_queue: Queue):
         # When agent loading fails, send the failure log to main process.
         failure = format_exc()
         logger.error('Loading failed!', exc_info=e)
-        result_queue.put((agent_name, failure, 0, 0, float('inf')))
+        result_queue.put((agent_name, failure, 200, 0, float('inf')))
         return
 
     # Do search
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     memory_ranksum = defaultdict(list)  # This will be computed as sum of rank across different games
     route_ranksum = defaultdict(list)  # This will be computed as sum of rank across different games
     act_ranksum = defaultdict(list)  # This will be computed as sum of rank across different games
-    last_execution = defaultdict(lambda: (0, 0, float('inf')))
+    last_execution = defaultdict(lambda: (200, 0, float('inf')))
 
     def _compute_rank(sort, reverse=False):
         """
@@ -205,7 +205,7 @@ if __name__ == '__main__':
             if failure_i is None and not (agent_i in exceeds):
                 last_execution[agent_i] = mem_i, route_i, act_i
             else:
-                last_execution[agent_i] = 0, 0, float('inf')
+                last_execution[agent_i] = 200, 0, float('inf')
                 failures[agent_i].append(failure_i if failure_i else exceeds[agent_i])
 
 
