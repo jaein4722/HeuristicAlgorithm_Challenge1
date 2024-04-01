@@ -57,8 +57,8 @@ class Agent:  # Do not change the name of this class!
         frontier = PriorityQueue()
         # Read initial state
         initial_state = board.get_initial_state()
-        frontier.put(Priority(0 + MAX_ROAD, initial_state))
-        reached = {initial_state['state_id']: MAX_ROAD}
+        frontier.put(Priority(0 + _Heuristic(board), initial_state))
+        reached = {initial_state['state_id']: 0 + _Heuristic(board)}
         escaping_routes = 10
 
         # Until the frontier is nonempty,
@@ -76,12 +76,12 @@ class Agent:  # Do not change the name of this class!
             
             # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, 또 처음에는 무조건 village
             if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
-                possible_actions += [(1, UPGRADE(v))
+                possible_actions += [(0, UPGRADE(v))
                                     for v in board.get_applicable_cities()]
                 
             # 2) VILLAGE - 역시 10 이상일 시 탈출을 위함
             if board.get_longest_route() >= escaping_routes:
-                possible_actions += [(1, VILLAGE(v))
+                possible_actions += [(0, VILLAGE(v))
                                     for v in board.get_applicable_villages()]
                 
             # 2) ROAD
@@ -112,6 +112,7 @@ class Agent:  # Do not change the name of this class!
                 child['parent'] = (state, action, cost)
                 frontier.put(Priority(pathCost + h, child))
                 reached[child['state_id']] = pathCost + h
+            frontier = topK(frontier, k=25)
 
         # Return empty list if search fails.
         return []

@@ -1,0 +1,3 @@
+2024-04-01 22:31:39,731 [Evaluate    ] INFO     Loading Astar agent to memory...
+2024-04-01 22:31:39,731 [Evaluate    ] INFO     Begin to search using Astar agent.
+2024-04-01 22:31:40,047 [Evaluate    ] INFO     Search finished for Astar, using 0MB during search.
