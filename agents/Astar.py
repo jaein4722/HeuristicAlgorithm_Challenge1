@@ -5,6 +5,7 @@ from action import *
 from board import GameBoard, RESOURCES
 from queue import LifoQueue, PriorityQueue, Queue
 
+MAX_ROAD = 10
 
 def _make_action_sequence(state: dict) -> List[Action]:
     # If there is no parent specified in the state, then it is an initial action.
@@ -24,7 +25,7 @@ def _pathCost(state: dict) -> int:
     return _pathCost(parental_state) + parent_cost
 
 def _Heuristic(board: GameBoard) -> int:
-    return 12 - board.get_longest_route()
+    return MAX_ROAD - board.get_longest_route()
 
 def topK(frontier: PriorityQueue, k: int) -> PriorityQueue:
     new_frontier = PriorityQueue()
@@ -56,8 +57,8 @@ class Agent:  # Do not change the name of this class!
         frontier = PriorityQueue()
         # Read initial state
         initial_state = board.get_initial_state()
-        frontier.put(Priority(0 + 12, initial_state))
-        reached = {initial_state['state_id']: 12}
+        frontier.put(Priority(0 + MAX_ROAD, initial_state))
+        reached = {initial_state['state_id']: MAX_ROAD}
         escaping_routes = 10
 
         # Until the frontier is nonempty,
@@ -88,7 +89,7 @@ class Agent:  # Do not change the name of this class!
                                  for road in board.get_applicable_roads()]
             
             # 3) PASS
-            possible_actions += [(4, PASS())]
+            possible_actions += [(3, PASS())]
             
             # 4) TRADE - WOOD, BRICK으로의 교환만 생각할것임
             possible_actions += [(3, TRADE(r, r2))
