@@ -23,6 +23,15 @@ def _pathCost(state: dict) -> int:
     parental_state, parent_action, parent_cost = state['parent']
     return _pathCost(parental_state) + parent_cost
 
+def _Heuristic(board: GameBoard) -> int:
+    return 12 - board.get_longest_route()
+
+def topK(frontier: PriorityQueue, k: int) -> PriorityQueue:
+    new_frontier = PriorityQueue()
+    for _ in range(k):
+        new_frontier.put(frontier.get())
+    return new_frontier
+
 class Priority(object):
     def __init__(self, priority, data):
         self.priority = priority
@@ -47,8 +56,8 @@ class Agent:  # Do not change the name of this class!
         frontier = PriorityQueue()
         # Read initial state
         initial_state = board.get_initial_state()
-        frontier.put(Priority(0, initial_state))
-        reached = {initial_state['state_id']: 0}
+        frontier.put(Priority(0 + 12, initial_state))
+        reached = {initial_state['state_id']: 12}
         escaping_routes = 10
 
         # Until the frontier is nonempty,
@@ -64,7 +73,7 @@ class Agent:  # Do not change the name of this class!
             # Build applicable actions
             possible_actions = []
             
-            # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출
+            # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, 또 처음에는 무조건 village
             if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
                 possible_actions += [(1, UPGRADE(v))
                                     for v in board.get_applicable_cities()]
@@ -92,15 +101,16 @@ class Agent:  # Do not change the name of this class!
             for cost, action in possible_actions:
                 child = board.simulate_action(state, action)
                 pathCost = _pathCost(child) + cost
+                h = _Heuristic(board)
 
                 # If the next state is already reached, then pass to the next action
-                if child['state_id'] in reached and pathCost >= reached[child['state_id']]:
+                if child['state_id'] in reached and pathCost + h >= reached[child['state_id']]:
                     continue
                 
                 # Add parent information to the next state
                 child['parent'] = (state, action, cost)
-                frontier.put(Priority(pathCost, child))
-                reached[child['state_id']] = pathCost
+                frontier.put(Priority(pathCost + h, child))
+                reached[child['state_id']] = pathCost + h
 
         # Return empty list if search fails.
         return []
