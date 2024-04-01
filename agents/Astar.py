@@ -29,6 +29,8 @@ def _Heuristic(board: GameBoard) -> int:
 
 def topK(frontier: PriorityQueue, k: int) -> PriorityQueue:
     new_frontier = PriorityQueue()
+    if frontier.qsize() <= k:
+        return frontier
     for _ in range(k):
         new_frontier.put(frontier.get())
     return new_frontier
@@ -57,9 +59,9 @@ class Agent:  # Do not change the name of this class!
         frontier = PriorityQueue()
         # Read initial state
         initial_state = board.get_initial_state()
-        frontier.put(Priority(0 + MAX_ROAD, initial_state))
-        reached = {initial_state['state_id']: MAX_ROAD}
-        escaping_routes = 10
+        frontier.put(Priority(0 + _Heuristic(board), initial_state))
+        reached = {initial_state['state_id']: 0 + _Heuristic(board)}
+        escaping_routes = 9
 
         # Until the frontier is nonempty,
         while not frontier.empty():
@@ -85,17 +87,17 @@ class Agent:  # Do not change the name of this class!
                                     for v in board.get_applicable_villages()]
                 
             # 2) ROAD
-            possible_actions += [(2, ROAD(road))
+            possible_actions += [(1, ROAD(road))
                                  for road in board.get_applicable_roads()]
             
             # 3) PASS
             possible_actions += [(3, PASS())]
             
             # 4) TRADE - WOOD, BRICK으로의 교환만 생각할것임
-            possible_actions += [(3, TRADE(r, r2))
+            possible_actions += [(5, TRADE(r, r2))
                                   for r in RESOURCES
                                   if board.get_trading_rate(r) > 0
-                                  for r2 in ['LUMBER', 'BRICK']
+                                  for r2 in ['Lumber', 'Brick']
                                   if r != r2]
 
             # Expand next states
