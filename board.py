@@ -6,19 +6,20 @@ import sys
 # Object-level deep copy method
 from copy import deepcopy
 # Random number generators
-from random import randint as random_integer, choice as random_choice, shuffle as random_shuffle
+from random import randint as random_integer, choice as random_choice, shuffle as random_shuffle, random as random_float
 # Type specification for Python code
 from typing import Tuple, List, Dict
 
 # Import some class definitions that implements the Settlers of Catan game.
 from pycatan import Game, Resource
-from pycatan.board import BeginnerBoard, BuildingType, Building, BoardRenderer
+from pycatan.board import BuildingType, BoardRenderer, BeginnerBoard, Hex, HexType, Harbor, \
+    IntersectionBuilding, PathBuilding
 
 # Process information class: for memory usage tracking
 from psutil import Process as PUInfo, NoSuchProcess
 
 # Import action specifications
-from action import Action
+from action import Action, VILLAGE, ROAD
 # Import some utilities
 from util import tuple_to_coordinate, count_building, coordinate_to_tuple, tuple_to_path_coordinate
 
@@ -26,18 +27,6 @@ from util import tuple_to_coordinate, count_building, coordinate_to_tuple, tuple
 #: True if the program run with 'DEBUG' environment variable.
 IS_DEBUG = '--debug' in sys.argv
 IS_RUN = 'fixed_evaluation' in sys.argv[0]
-
-# Initialize logger
-if not IS_RUN:
-    logging.basicConfig(level=logging.DEBUG if IS_DEBUG else logging.INFO,
-                        format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s',
-                        filename=f'execution-{os.getpid()}.log',
-                        # Also, the output will be logged in 'execution-(pid).log' file.
-                        filemode='w+')  # The logging file will be overwritten.
-else:
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s')
-
 
 # String List of available resources
 RESOURCES = [
@@ -47,6 +36,9 @@ RESOURCES = [
     Resource.GRAIN.name,
     Resource.LUMBER.name
 ]
+
+# List of player colors
+PLAYER_COLOR = ["#00c40d", "#ff00d9", "#0000FF", "#00FFFF"]
 
 
 def _coordinate_to_identifier(c):
@@ -71,7 +63,7 @@ def _unique_game_state_identifier(game: Game) -> str:
     """
 
     hexes = ':'.join([
-        _coordinate_to_identifier(c) + str(h.hex_type.value)
+        str(h.token_number) + _coordinate_to_identifier(c) + str(h.hex_type.value)
         for c, h in sorted(game.board.hexes.items(), key=lambda t: t[1].token_number or -1)
     ])
     intersections = ':'.join([
@@ -153,7 +145,7 @@ def _read_state(game: Game, player: int) -> dict:
     }
 
 
-def _restore_state(game: Game, state: dict):
+def _restore_state(game: Game, state: dict, turnoff_check: bool):
     """
     Helper function to restore board state to given state representation.
 
@@ -164,24 +156,41 @@ def _restore_state(game: Game, state: dict):
     player = state['player_id']
 
     # Check whether hexes are the same.
+    if turnoff_check:
+        game.board.hexes.clear()
+        game.board.harbors.clear()
+
     for c, h in state['board']['hexes'].items():
         c = tuple_to_coordinate(c)
-        assert game.board.hexes[c].hex_type.name == h['type'], 'The hex information (hex type) is different!'
-        assert game.board.hexes[c].token_number == h['dice'], 'The hex information (hex token) is different!'
+        if turnoff_check:
+            game.board.hexes[c] = Hex(
+                coords=c, hex_type=HexType[h['type'].upper()], token_number=h['dice']
+            )
+        else:
+            assert game.board.hexes[c].hex_type.name == h['type'],\
+                f'The hex information (hex type) is different! {game.board.hexes[c].hex_type.name} == {h["type"]}'
+            assert game.board.hexes[c].token_number == h['dice'], 'The hex information (hex token) is different!'
 
     # Check whether harbors are the same.
     for (c1, c2), i in state['board']['harbors'].items():
         c = tuple_to_path_coordinate((c1, c2))
-        res = game.board.harbors[c].resource
 
-        assert (res is None and i['type'] is None) or (res.name == i['type']), 'Harbor information is different!'
+        if turnoff_check:
+            game.board.harbors[c] = Harbor(
+                path_coords=c,
+                resource=None if i['type'] is None else Resource[i['type'].upper()]
+            )
+        else:
+            res = game.board.harbors[c].resource
+            assert (res is None and i['type'] is None) or (res.name == i['type']), 'Harbor information is different!'
 
     # Restore intersections
     for c, i in state['board']['intersections'].items():
         c = tuple_to_coordinate(c)
         building = None
         if i['type'] is not None:
-            building = Building(building_type=BuildingType[i['type']], owner=game.players[i['owner']])
+            building = IntersectionBuilding(building_type=BuildingType[i['type']], owner=game.players[i['owner']],
+                                            coords=c)
 
         game.board.intersections[c].building = building
 
@@ -190,7 +199,7 @@ def _restore_state(game: Game, state: dict):
         c = tuple_to_path_coordinate((c1, c2))
         building = None
         if i['type']:
-            building = Building(building_type=BuildingType.ROAD, owner=game.players[i['owner']])
+            building = PathBuilding(building_type=BuildingType.ROAD, owner=game.players[i['owner']], path_coords=c)
 
         game.board.paths[c].building = building
 
@@ -223,16 +232,18 @@ class GameBoard:
     _initial = None
     #: [PRIVATE] The current state of the board. Don't access this directly in your agent code!
     _current = None
-    #: [PRIVATE] The order of dice roll. Don't access this directly in your agent code!
-    _dice_roll_order = []
-    #: [PRIVATE] The number of current turn. Don't access this directly in your agent code!
-    _dice_roll = 0
+    #: [PRIVATE] Weight of the resource cards
+    _resource_weights = []
+    #: [PRIVATE] The order of current setup turn
+    _setup_turn = 0
     #: [PRIVATE] Logger instance for Board's function calls
     _logger = logging.getLogger('GameBoard')
     #: [PRIVATE] Memory usage tracker
     _process_info = None
     #: [PRIVATE] Maximum memory usage. Don't access this directly in your agent code!
     _max_memory = 0
+    #: [PRIVATE] Boolean for indicating whether this is on an initial set-up procedure or not
+    _initial_phase = False
 
     def _initialize(self):
         """
@@ -248,7 +259,10 @@ class GameBoard:
         self._game = Game(BeginnerBoard())
         # Initialize board renderer for debugging purposes
         if IS_DEBUG:  # Logging for debug
-            self._renderer = BoardRenderer(self._game.board)
+            self._renderer = BoardRenderer(self._game.board, player_color_map={
+                player: PLAYER_COLOR[pid]
+                for pid, player in enumerate(self._game.players)
+            })
             self._logger.debug('Rendered board: \n' + _unique_game_state_identifier(self._game))
             self._renderer.render_board()
 
@@ -327,17 +341,22 @@ class GameBoard:
             for r in RESOURCES
         })
 
-    def set_to_state(self, specific_state=None):
+    def set_to_state(self, specific_state=None, is_initial: bool = False):
         """
         Restore the board to the initial state for repeated evaluation.
 
         :param specific_state: A state representation which the board reset to
+        :param is_initial: True if this is an initial state to begin evaluation
         """
+        assert specific_state is not None or not is_initial
         if specific_state is None:
             specific_state = self._initial
+        if is_initial:
+            self._initial = specific_state
+            self._current = deepcopy(self._initial)
 
         # Restore the board to the given state.
-        self._player_number = _restore_state(self._game, specific_state)
+        self._player_number = _restore_state(self._game, specific_state, turnoff_check=is_initial)
         self._dice_roll = specific_state['dice_roll']
 
         # Update memory usage
@@ -361,6 +380,20 @@ class GameBoard:
         if IS_DEBUG:  # Logging for debug
             self._logger.debug(f'Querying whether the game ends in this state... Answer = {is_game_end}')
         return is_game_end
+
+    def get_state(self) -> dict:
+        """
+        Get the current board state
+
+        :return: A copy of the current board state dictionary
+        """
+        if IS_DEBUG:  # Logging for debug
+            self._logger.debug('Querying initial state...')
+
+        # Check whether the game has been initialized or not.
+        assert self._current is not None, 'The board should be initialized. Did you run the evaluation code properly?'
+        # Return the initial state representation as a copy.
+        return deepcopy(self._current)
 
     def get_initial_state(self) -> dict:
         """
@@ -609,12 +642,26 @@ class GameBoard:
         # Restore to the given state
         self.set_to_state(state)
 
+        # Check whether these actions are valid
+        if self._initial_phase:
+            if len(actions) > 2:
+                raise ValueError('On the initial phase, you can simulate at most two actions.')
+            if len(actions) == 2 and {type(a) for a in actions} != {VILLAGE, ROAD}:
+                raise ValueError('When executing two consecutive actions, '
+                                 'you need to execute VILLAGE and ROAD actions during the initial phase')
+            if len(actions) == 1 and not isinstance(actions[0], (VILLAGE, ROAD)):
+                raise ValueError('You need to execute VILLAGE or ROAD actions during the initial phase')
+
         for act in actions:  # For each actions in the variable arguments,
-            # Run actions through calling each action object
-            act(self)
+            try:
+                # Run actions through calling each action object
+                act(self)
+            except:
+                # If the action is forbidden, nothing happens.
+                pass
 
             # Break the loop if the game ends within executing actions.
-            if self.is_game_end():
+            if not self._initial_phase and self.is_game_end():
                 break
 
         # Copy the current state to return
@@ -632,6 +679,46 @@ class GameBoard:
 
         return deepcopy(self._current)
 
+    def evaluate_state(self, state: dict = None) -> float:
+        """
+        Evaluate the fitness of given state.
+        Here, the fitness is the expected total resource income of resource cards, after five turns.
+
+        Usage:
+            - `evaluate_state(state)` will give you a single fitness score of the current state.
+
+        :param state: State to evaluate. If None, the evaluation uses the initial state.
+        :return: Total resource income of resource cards, after five turns, weighted by importance in the board.
+        """
+        # Restore to the given state
+        self.set_to_state(state)
+
+        # Get the current number of cards
+        player = self._game.players[self._player_number]
+        # Evaluate the expected resource income
+        earned = 0.0
+        for roll, prob in DICE_ROLL.items():
+            players_yields = self._game.board.get_yield_for_roll(roll + 1)
+            if player not in players_yields:
+                continue
+
+            yields = players_yields[player].total_yield
+            if IS_DEBUG:
+                self._logger.debug(f'Player\'s yield: {list(yields.items())} on roll {roll}')
+            weighted = sum(self._resource_weights[res.name] * yld for res, yld in yields.items())
+            earned += weighted * prob
+
+        if IS_DEBUG:  # Logging for debug
+            self._logger.debug(f'Expected earning per turn: {earned}')
+
+        # Update memory usage
+        self._update_memory_usage()
+        # Add one more simulation calls
+        self._simulation_calls += 1
+
+        # Return evaluation result
+        return earned * 5
+
 
 # Export only GameBoard and RESOURCES.
-__all__ = ['GameBoard', 'RESOURCES', 'IS_DEBUG']
+__all__ = ['GameBoard', 'RESOURCES', 'IS_DEBUG', 'IS_RUN']

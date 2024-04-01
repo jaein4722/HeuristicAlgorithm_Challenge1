@@ -30,7 +30,7 @@ MEGABYTES = 1024 ** 2
 #: The number of games to run the evaluation
 GAMES = 5
 #: LIMIT FOR A SINGLE EXECUTION, 60 minutes
-TIME_LIMIT = 1000 * 60 * 60
+TIME_LIMIT = 60 * 60
 #: LIMIT OF MEMORY USAGE, 4GB
 MEMORY_LIMIT = 4 * 1024 * MEGABYTES
 
@@ -45,10 +45,21 @@ def evaluate_algorithm(agent_name, initial_state, result_queue: Queue):
     :param initial_state: Initial state for the test
     :param result_queue: A multiprocessing Queue to return the execution result.
     """
+    # Initialize logger
+    if not IS_RUN:
+        logging.basicConfig(level=logging.DEBUG if IS_DEBUG else logging.INFO,
+                            format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s',
+                            filename=f'execution-{agent_name}.log',
+                            # Also, the output will be logged in 'execution-(agent).log' file.
+                            filemode='w+')  # The logging file will be overwritten.
+    else:
+        logging.basicConfig(level=logging.INFO,
+                            format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s')
+
     # Set up the given problem
     problem = GameBoard()
     problem._initialize()
-    problem.set_to_state(initial_state)
+    problem.set_to_state(initial_state, is_initial=True)
 
     # Log initial memory size
     init_memory = problem.get_current_memory_usage()
@@ -216,7 +227,8 @@ if __name__ == '__main__':
             process_results.get()
 
         # Generate new problem
-        prob_spec = prob_generator._initialize()
+        prob_generator._initialize()
+        prob_spec = prob_generator.get_state()
         logging.info(f'Trial {trial} begins!')
 
         # Execute agents
