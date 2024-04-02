@@ -49,7 +49,7 @@ def evaluate_algorithm(agent_name, initial_state, result_queue: Queue):
     if not IS_RUN:
         logging.basicConfig(level=logging.DEBUG if IS_DEBUG else logging.INFO,
                             format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s',
-                            filename=f'execution-{agent_name}.log',
+                            filename=f'execution-{agent_name}-{os.getpid()}.log',
                             # Also, the output will be logged in 'execution-(agent).log' file.
                             filemode='w+')  # The logging file will be overwritten.
     else:

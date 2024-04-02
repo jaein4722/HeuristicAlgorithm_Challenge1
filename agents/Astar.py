@@ -55,7 +55,7 @@ class Agent:  # Do not change the name of this class!
         :param board: Game board to manipulate
         :return: List of actions
         """
-        # Set up frontiers as FIFO Queue
+        # Set up frontiers as Priority Queue
         frontier = PriorityQueue()
         # Read initial state
         initial_state = board.get_initial_state()
@@ -76,7 +76,7 @@ class Agent:  # Do not change the name of this class!
             # Build applicable actions
             possible_actions = []
             
-            # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, 또 처음에는 무조건 village
+            # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, or 가능하다면 UPGRADE 먼저 시행
             if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
                 possible_actions += [(1, UPGRADE(v))
                                     for v in board.get_applicable_cities()]
@@ -95,7 +95,7 @@ class Agent:  # Do not change the name of this class!
             
             # 4) TRADE - WOOD, BRICK으로의 교환만 생각할것임
             possible_actions += [(5, TRADE(r, r2))
-                                  for r in RESOURCES
+                                  for r in ['Ore', 'Wool', 'Grain']
                                   if board.get_trading_rate(r) > 0
                                   for r2 in ['Lumber', 'Brick']
                                   if r != r2]
