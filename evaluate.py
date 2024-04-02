@@ -51,7 +51,7 @@ def evaluate_algorithm(agent_name, initial_state, result_queue: Queue):
                             format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s',
                             filename=f'execution-{agent_name}-{os.getpid()}.log',
                             # Also, the output will be logged in 'execution-(agent).log' file.
-                            filemode='w+')  # The logging file will be overwritten.
+                            filemode='w+')  # The logging file will be not overwritten.
     else:
         logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s')
@@ -93,6 +93,10 @@ def evaluate_algorithm(agent_name, initial_state, result_queue: Queue):
     # Get maximum memory usage during search (Performance measure II)
     max_memory_usage = int(max(0, problem.get_max_memory_usage() - init_memory) / MEGABYTES / 10) * 10
     logger.info(f'Search finished for {agent_name}, using {max_memory_usage}MB during search.')
+    try:
+        logger.info(f'Solution is : {solution}')
+    except:
+        pass
     # Ignore memory usage below 200MB.
     max_memory_usage = max(200, max_memory_usage)
 

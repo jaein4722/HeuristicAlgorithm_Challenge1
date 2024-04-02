@@ -13,19 +13,57 @@ def _make_action_sequence(state: dict) -> List[Action]:
         return []
 
     # Move back to the parent state, and read the action sequence until that state.
-    parental_state, parent_action, parent_cost = state['parent']
+    parental_state, parent_action = state['parent']
     # Append the required action to reach the current state at the end of the parent's action list.
     return _make_action_sequence(parental_state) + [parent_action]
 
-def _pathCost(state: dict) -> int:
-    if 'parent' not in state:
+def Heuristic(board: GameBoard) -> int:
+    if board.get_longest_route() >= MAX_ROAD - 1:
         return 0
+    else:
+        return MAX_ROAD - board.get_longest_route()
     
-    parental_state, parent_action, parent_cost = state['parent']
-    return _pathCost(parental_state) + parent_cost
-
-def _Heuristic(board: GameBoard) -> int:
-    return MAX_ROAD - board.get_longest_route()
+def escape_Heuristic(board: GameBoard) -> int:
+    '''
+    최대로 이을 수 있는 도로의 수를 추정하는 휴리스틱 함수
+    return: 최대로 이을 수 있는 도로 길이의 추정값 (9 or 10)
+    '''
+    state = board.get_state()
+    my_id = state['player_id']
+    assert len(board.get_applicable_cities()) == 2
+    settle1, settle2 = board.get_applicable_cities()
+    
+    if settle1[0] < settle2[0]:
+        settle1, settle2 = settle2, settle1
+    # 추정 거리 계산 - 두 settle의 각 좌표의 차이를 더해 추정 거리를 구해본다
+    estimated_distance = abs(settle1[0] - settle2[0]) + abs(settle1[1] - settle2[1])
+    other_settles = state['board']['intersections']
+    
+    if estimated_distance >= 10:
+        # 추정 거리가 10보다 멀면, 직접 그려봤을 때 최대 도로 길이인 10개를 깔 수가 없음
+        # 따라서 하나 적게 탈출값을 설정
+        return MAX_ROAD - 1
+    elif estimated_distance >= 8:
+        # 두 settle 사이가 너무 멀지 않고 적당히 멀 때,
+        # 나의 두 settle 사이를 대각선으로 그어, 그 안에 다른 플레이어의 settle이 있는지 판별
+        # 있다면 최대 길이보다 작게, 없다면 최대 길이로 설정
+        gradient = (settle1[0] - settle2[0]) / (settle1[1] - settle2[1])
+        while not (settle1[0] == min(settle2[0], settle2[1]) or settle1[1] == min(settle2[0], settle2[1])):
+            # 두 settle을 이은 직선의 기울기에 따라 좌표 계산이 달라짐
+            if gradient > 0 : 
+                settle1 = (settle1[0] - 1, settle1[1] - 1)
+                if settle1 in other_settles and other_settles[settle1]['owner'] != my_id:
+                    return MAX_ROAD - 1
+            elif gradient < 0 :
+                settle1 = (settle1[0] - 2, settle1[1] + 1)
+                if settle1 in other_settles and other_settles[settle1]['owner'] != my_id:
+                    return MAX_ROAD - 1
+            else:
+                # 두 settle이 적당히 멀면서 한 수직선 상에 있음 -> 최대 길이 불가, 작게 설정
+                return MAX_ROAD - 1
+        return MAX_ROAD
+    else:
+        return MAX_ROAD
 
 def topK(frontier: PriorityQueue, k: int) -> PriorityQueue:
     new_frontier = PriorityQueue()
@@ -39,7 +77,7 @@ def find_ancestors(state: dict) -> list:
     if 'parent' not in state:
         return [state['state_id']]
     
-    parental_state, parent_action, parent_cost = state['parent']
+    parental_state, parent_action = state['parent']
     return find_ancestors(parental_state) + [state['state_id']]
 
 class Priority(object):
@@ -55,9 +93,10 @@ class Agent:  # Do not change the name of this class!
     An agent class, with DFS
     """
     def __init__(self):
-        self.escaping_routes = 9
+        self.escaping_routes = 0
     
     def make_possible_actions(self, board: GameBoard, escaping_routes: int) -> list:
+        
         possible_actions = []
         
         # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, or 가능하다면 UPGRADE 먼저 시행
@@ -85,23 +124,6 @@ class Agent:  # Do not change the name of this class!
                                 if r != r2]
         return possible_actions
     
-    def CostLimitedA(self, board: GameBoard, state: dict, costLimit: int, h: int):
-        fCost = _pathCost(state) + h
-        if fCost > costLimit:
-            return ('cut-off', fCost)
-        
-        nextLimit = float('inf')
-        
-        possible_actions = self.make_possible_actions(board, self.escaping_routes)
-        for cost, action in possible_actions:
-            child = board.simulate_action(action)
-            if child not in find_ancestors(state):
-                result, newLimit = self.CostLimitedA(board, child, costLimit, h)
-                if board.simulate_action(result):
-                    return (result)
-                nextLimit = min(newLimit, nextLimit)
-        return (result, nextLimit)
-    
     def search_for_longest_route(self, board: GameBoard) -> List[Action]:
         """
         This algorithm search for an action sequence that makes the longest trading route at the end of the game.
@@ -114,14 +136,23 @@ class Agent:  # Do not change the name of this class!
         frontier = PriorityQueue()
         # Read initial state
         initial_state = board.get_initial_state()
-        frontier.put(Priority(0 + _Heuristic(board), initial_state))
-        reached = {initial_state['state_id']: 0 + _Heuristic(board)}
+        
+        initial_state['pathCost'] = 0
+        initial_heuristic = Heuristic(board)
+        
+        board.set_to_state(initial_state)
+        self.escaping_routes = escape_Heuristic(board)
+        print(self.escaping_routes)
+        
+        frontier.put(Priority(initial_state['pathCost'] + initial_heuristic, initial_state))
+        reached = {initial_state['state_id']: initial_state['pathCost'] + initial_heuristic}
 
         # Until the frontier is nonempty,
         while not frontier.empty():
             # Read a state to search further
             state = frontier.get().data
             board.set_to_state(state)
+            precious_cost = state['pathCost']
 
             # If it is the game end, then read action sequences by back-tracing the actions.
             if board.is_game_end():
@@ -133,8 +164,9 @@ class Agent:  # Do not change the name of this class!
             # Expand next states
             for cost, action in possible_actions:
                 child = board.simulate_action(state, action)
-                pathCost = _pathCost(child) + cost
-                h = _Heuristic(board)
+                
+                pathCost = precious_cost + cost
+                h = Heuristic(board)
                 fScore = pathCost + h
 
                 # If the next state is already reached, then pass to the next action
@@ -142,9 +174,11 @@ class Agent:  # Do not change the name of this class!
                     continue
                 
                 # Add parent information to the next state
-                child['parent'] = (state, action, cost)
+                child['parent'] = (state, action)
+                child['pathCost'] = pathCost
                 frontier.put(Priority(fScore, child))
                 reached[child['state_id']] = fScore
+            frontier = topK(frontier, 100)
 
         # Return empty list if search fails.
         return []
