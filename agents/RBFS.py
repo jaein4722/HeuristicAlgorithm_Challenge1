@@ -33,65 +33,6 @@ def topK(frontier: PriorityQueue, k: int) -> PriorityQueue:
         new_frontier.put(frontier.get())
     return new_frontier
 
-def RBFS(board: GameBoard, state: dict, flimit: float, escaping_routes: int):
-    board.set_to_state(state)
-    if board.is_game_end():
-        return _make_action_sequence(state)
-    # Build applicable actions
-    possible_actions = []
-    
-    # 1) UPGRADE - ÃÖÀå°æ·Î 10 ÀÌ»óÀÌ¸é ¿ì¼± Å»Ãâ, ¶Ç Ã³À½¿¡´Â ¹«Á¶°Ç village
-    if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
-        possible_actions += [(1, UPGRADE(v))
-                            for v in board.get_applicable_cities()]
-        
-    # 2) VILLAGE - ¿ª½Ã 10 ÀÌ»óÀÏ ½Ã Å»ÃâÀ» À§ÇÔ
-    if board.get_longest_route() >= escaping_routes:
-        possible_actions += [(1, VILLAGE(v))
-                            for v in board.get_applicable_villages()]
-        
-    # 2) ROAD
-    possible_actions += [(1, ROAD(road))
-                            for road in board.get_applicable_roads()]
-    
-    # 3) PASS
-    possible_actions += [(3, PASS())]
-    
-    # 4) TRADE - WOOD, BRICKÀ¸·ÎÀÇ ±³È¯¸¸ »ý°¢ÇÒ°ÍÀÓ
-    possible_actions += [(5, TRADE(r, r2))
-                            for r in RESOURCES
-                            if board.get_trading_rate(r) > 0
-                            for r2 in ['Lumber', 'Brick']
-                            if r != r2]
-    
-    
-    
-    successors = PriorityQueue()
-
-    #expand
-    for cost, action in possible_actions:
-        child = board.simulate_action(state, action)
-        pathCost = state['pathcost'] + cost
-        h = _Heuristic(board)
-        fcost = max(state['pathcost'], pathCost+h)
-        successors.put(Priority(fcost, child))
-        child['pathcost'] = fcost
-        child['parent'] = (state, action)
-
-    if successors.qsize() == 0:
-        return {}, float("inf")
-    
-    while True:
-        best = successors.get().data
-        if best['pathcost'] > flimit:
-            return {}, best['pathcost']
-        alternative = successors.get().data
-        result, best['pathcost'] = RBFS(board, best, min(flimit, alternative['pathcost']), escaping_routes)
-
-        if result != {}:
-            return result, best['pathcost']
-
-
 class Priority(object):
     def __init__(self, priority, data):
         self.priority = priority
@@ -104,6 +45,66 @@ class Agent:  # Do not change the name of this class!
     """
     An agent class, with DFS
     """
+    def make_possible_actions(self, board: GameBoard, escaping_routes: int) -> list:
+        
+        possible_actions = []
+        
+        # 1) UPGRADE - ìµœìž¥ê²½ë¡œ 10 ì´ìƒì´ë©´ ìš°ì„  íƒˆì¶œ, or ê°€ëŠ¥í•˜ë‹¤ë©´ UPGRADE ë¨¼ì € ì‹œí–‰
+        if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
+            possible_actions += [(1, UPGRADE(v))
+                                for v in board.get_applicable_cities()]
+            
+        # 2) VILLAGE - ì—­ì‹œ 10 ì´ìƒì¼ ì‹œ íƒˆì¶œì„ ìœ„í•¨
+        if board.get_longest_route() >= escaping_routes:
+            possible_actions += [(1, VILLAGE(v))
+                                for v in board.get_applicable_villages()]
+            
+        # 3) ROAD
+        possible_actions += [(1, ROAD(road))
+                                for road in board.get_applicable_roads()]
+        
+        # 4) PASS
+        possible_actions += [(3, PASS())]
+        
+        # 5) TRADE - WOOD, BRICKìœ¼ë¡œì˜ êµí™˜ë§Œ ìƒê°í• ê²ƒìž„
+        possible_actions += [(5, TRADE(r, r2))
+                                for r in ['Ore', 'Wool', 'Grain']
+                                if board.get_trading_rate(r) > 0
+                                for r2 in ['Lumber', 'Brick']
+                                if r != r2]
+        return possible_actions
+    
+    def RBFS(self, board: GameBoard, state: dict, flimit: float, escaping_routes: int):
+        board.set_to_state(state)
+        if board.is_game_end():
+            return _make_action_sequence(state)
+        # Build applicable actions
+        possible_actions = self.make_possible_actions(board, )
+        successors = PriorityQueue()
+
+        #expand
+        for cost, action in possible_actions:
+            child = board.simulate_action(state, action)
+            pathCost = state['pathcost'] + cost
+            h = _Heuristic(board)
+            fcost = max(state['pathcost'], pathCost+h)
+            successors.put(Priority(fcost, child))
+            child['pathcost'] = fcost
+            child['parent'] = (state, action)
+
+        if successors.qsize() == 0:
+            return {}, float("inf")
+        
+        while True:
+            best = successors.get().data
+            if best['pathcost'] > flimit:
+                return {}, best['pathcost']
+            alternative = successors.get().data
+            result, best['pathcost'] = RBFS(board, best, min(flimit, alternative['pathcost']), escaping_routes)
+
+            if result != {}:
+                return result, best['pathcost']
+    
     def search_for_longest_route(self, board: GameBoard) -> List[Action]:
         """
         This algorithm search for an action sequence that makes the longest trading route at the end of the game.
@@ -137,12 +138,12 @@ class Agent:  # Do not change the name of this class!
         #     # Build applicable actions
         #     possible_actions = []
             
-        #     # 1) UPGRADE - ÃÖÀå°æ·Î 10 ÀÌ»óÀÌ¸é ¿ì¼± Å»Ãâ, ¶Ç Ã³À½¿¡´Â ¹«Á¶°Ç village
+        #     # 1) UPGRADE - ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 10 ï¿½Ì»ï¿½ï¿½Ì¸ï¿½ ï¿½ì¼± Å»ï¿½ï¿½, ï¿½ï¿½ Ã³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ village
         #     if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
         #         possible_actions += [(1, UPGRADE(v))
         #                             for v in board.get_applicable_cities()]
                 
-        #     # 2) VILLAGE - ¿ª½Ã 10 ÀÌ»óÀÏ ½Ã Å»ÃâÀ» À§ÇÔ
+        #     # 2) VILLAGE - ï¿½ï¿½ï¿½ï¿½ 10 ï¿½Ì»ï¿½ï¿½ï¿½ ï¿½ï¿½ Å»ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         #     if board.get_longest_route() >= escaping_routes:
         #         possible_actions += [(1, VILLAGE(v))
         #                             for v in board.get_applicable_villages()]
@@ -154,7 +155,7 @@ class Agent:  # Do not change the name of this class!
         #     # 3) PASS
         #     possible_actions += [(3, PASS())]
             
-        #     # 4) TRADE - WOOD, BRICKÀ¸·ÎÀÇ ±³È¯¸¸ »ý°¢ÇÒ°ÍÀÓ
+        #     # 4) TRADE - WOOD, BRICKï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½È¯ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Ò°ï¿½ï¿½ï¿½
         #     possible_actions += [(5, TRADE(r, r2))
         #                           for r in RESOURCES
         #                           if board.get_trading_rate(r) > 0
