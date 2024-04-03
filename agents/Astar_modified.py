@@ -141,8 +141,8 @@ class Agent:  # Do not change the name of this class!
         initial_heuristic = Heuristic(board)
         
         board.set_to_state(initial_state)
-        self.escaping_routes = escape_Heuristic(board)
-        print(self.escaping_routes)
+        self.escaping_routes = MAX_ROAD #escape_Heuristic(board)
+        #print(self.escaping_routes)
         
         frontier.put(Priority(initial_state['pathCost'] + initial_heuristic, initial_state))
         reached = {initial_state['state_id']: initial_state['pathCost'] + initial_heuristic}
@@ -178,7 +178,7 @@ class Agent:  # Do not change the name of this class!
                 child['pathCost'] = pathCost
                 frontier.put(Priority(fScore, child))
                 reached[child['state_id']] = fScore
-            frontier = topK(frontier, 100)
+            frontier = topK(frontier, 1200)
 
         # Return empty list if search fails.
         return []
