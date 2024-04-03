@@ -9,6 +9,7 @@ import sys
 sys.setrecursionlimit(10000)
 
 MAX_ROAD = 10
+INF = 100000
 
 def _make_action_sequence(state: dict) -> List[Action]:
     # If there is no parent specified in the state, then it is an initial action.
@@ -45,17 +46,20 @@ class Agent:  # Do not change the name of this class!
     """
     An agent class, with DFS
     """
-    def make_possible_actions(self, board: GameBoard, escaping_routes: int) -> list:
+    def __init__(self):
+        self.escaping_routes = 0
+    
+    def make_possible_actions(self, board: GameBoard) -> list:
         
         possible_actions = []
         
         # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, or 가능하다면 UPGRADE 먼저 시행
-        if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
+        if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= self.escaping_routes:
             possible_actions += [(1, UPGRADE(v))
                                 for v in board.get_applicable_cities()]
             
         # 2) VILLAGE - 역시 10 이상일 시 탈출을 위함
-        if board.get_longest_route() >= escaping_routes:
+        if board.get_longest_route() >= self.escaping_routes:
             possible_actions += [(1, VILLAGE(v))
                                 for v in board.get_applicable_villages()]
             
@@ -74,36 +78,43 @@ class Agent:  # Do not change the name of this class!
                                 if r != r2]
         return possible_actions
     
-    def RBFS(self, board: GameBoard, state: dict, flimit: float, escaping_routes: int):
+    def RBFS(self, board: GameBoard, state: dict, fLimit: float):
         board.set_to_state(state)
         if board.is_game_end():
-            return _make_action_sequence(state)
+            return _make_action_sequence(state), 0
         # Build applicable actions
-        possible_actions = self.make_possible_actions(board, )
+        possible_actions = self.make_possible_actions(board)
+        
+        # Unlike normal RBFS, we use PriorityQueue instead of List
+        # -> I think it is better to choose 'best'.
+        expanded = [Priority]
         successors = PriorityQueue()
 
         #expand
         for cost, action in possible_actions:
             child = board.simulate_action(state, action)
-            pathCost = state['pathcost'] + cost
+            pathCost = state['pathCost'] + cost
             h = _Heuristic(board)
-            fcost = max(state['pathcost'], pathCost+h)
-            successors.put(Priority(fcost, child))
-            child['pathcost'] = fcost
+            fCost = pathCost+h
+            expanded.append(Priority(fCost, child))
             child['parent'] = (state, action)
+            child['pathCost'] = pathCost
 
-        if successors.qsize() == 0:
-            return {}, float("inf")
+        if len(expanded) == 0:
+            return [], INF
+        
+        for s in expanded:
+            successors.put(Priority((), s.data))
         
         while True:
-            best = successors.get().data
-            if best['pathcost'] > flimit:
-                return {}, best['pathcost']
-            alternative = successors.get().data
-            result, best['pathcost'] = RBFS(board, best, min(flimit, alternative['pathcost']), escaping_routes)
+            best = expanded.get().data
+            if best['pathCost'] > fLimit:
+                return {}, best['pathCost']
+            alternative = expanded.get().data
+            result, best['pathCost'] = RBFS(board, best, min(fLimit, alternative['pathCost']), escaping_routes)
 
             if result != {}:
-                return result, best['pathcost']
+                return result, best['pathCost']
     
     def search_for_longest_route(self, board: GameBoard) -> List[Action]:
         """
@@ -121,7 +132,7 @@ class Agent:  # Do not change the name of this class!
         # Read initial state
         initial_state = board.get_initial_state()
         # frontier.put(Priority(0 + _Heuristic(board), initial_state))
-        initial_state['pathcost'] = 0
+        initial_state['pathCost'] = 0
         escaping_routes = 9
         RBFS(board, initial_state, float("inf"), escaping_routes)
 
