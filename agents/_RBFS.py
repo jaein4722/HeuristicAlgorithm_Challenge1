@@ -25,6 +25,7 @@ def _make_action_sequence(state: dict) -> List[Action]:
 def _Heuristic(board: GameBoard) -> int:
     return MAX_ROAD - board.get_longest_route()
 
+
 def topK(frontier: PriorityQueue, k: int) -> PriorityQueue:
     new_frontier = PriorityQueue()
     if frontier.qsize() <= k:
@@ -49,6 +50,7 @@ class Agent:  # Do not change the name of this class!
         self.escaping_routes = 0
     
     def make_possible_actions(self, board: GameBoard) -> list:
+        
         possible_actions = []
         
         # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, or 가능하다면 UPGRADE 먼저 시행
@@ -85,7 +87,7 @@ class Agent:  # Do not change the name of this class!
         
         # Unlike normal RBFS, we use PriorityQueue instead of List
         # -> I think it is better to choose 'best'.
-        expanded = []
+        expanded = [Priority]
         successors = PriorityQueue()
 
         #expand
