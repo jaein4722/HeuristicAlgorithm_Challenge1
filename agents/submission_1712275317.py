@@ -23,33 +23,41 @@ def Heuristic(board: GameBoard) -> int:
     else:
         return MAX_ROAD - board.get_longest_route()
     
+def real_distance(s1: tuple, s2: tuple):
+    if s2[0] > s1[0]:
+        return s2[1] - s1[1] + s2[0] - s1[0]
+    elif s1[0] + s1[1] > s2[0] +s2[1]:
+        return s1[0] - s2[0]
+    else:
+        return s2[1] - s1[1]
+    
 def escape_Heuristic(board: GameBoard) -> int:
     '''
-    최대로 이을 수 있는 도로의 수를 추정하는 휴리스틱 함수
-    return: 최대로 이을 수 있는 도로 길이의 추정값 (9 or 10)
+    ìµëë¡ ì´ì ì ìë ëë¡ì ìë¥¼ ì¶ì íë í´ë¦¬ì¤í± í¨ì
+    return: ìµëë¡ ì´ì ì ìë ëë¡ ê¸¸ì´ì ì¶ì ê° (9 or 10)
     '''
     state = board.get_state()
     my_id = state['player_id']
     assert len(board.get_applicable_cities()) == 2
     settle1, settle2 = board.get_applicable_cities()
     
-    if settle1[0] < settle2[0]:
+    if settle1[1] > settle2[1]:
         settle1, settle2 = settle2, settle1
-    # 추정 거리 계산 - 두 settle의 각 좌표의 차이를 더해 추정 거리를 구해본다
-    estimated_distance = abs(settle1[0] - settle2[0]) + abs(settle1[1] - settle2[1])
+    # ì¶ì  ê±°ë¦¬ ê³ì° - ë settleì ê° ì¢íì ì°¨ì´ë¥¼ ëí´ ì¶ì  ê±°ë¦¬ë¥¼ êµ¬í´ë³¸ë¤
+    estimated_distance = real_distance(settle1, settle2)
     other_settles = state['board']['intersections']
     
     if estimated_distance >= 10:
-        # 추정 거리가 10보다 멀면, 직접 그려봤을 때 최대 도로 길이인 10개를 깔 수가 없음
-        # 따라서 하나 적게 탈출값을 설정
+        # ì¶ì  ê±°ë¦¬ê° 10ë³´ë¤ ë©ë©´, ì§ì  ê·¸ë ¤ë´¤ì ë ìµë ëë¡ ê¸¸ì´ì¸ 10ê°ë¥¼ ê¹ ìê° ìì
+        # ë°ë¼ì íë ì ê² íì¶ê°ì ì¤ì 
         return MAX_ROAD - 1
     elif estimated_distance >= 8:
-        # 두 settle 사이가 너무 멀지 않고 적당히 멀 때,
-        # 나의 두 settle 사이를 대각선으로 그어, 그 안에 다른 플레이어의 settle이 있는지 판별
-        # 있다면 최대 길이보다 작게, 없다면 최대 길이로 설정
+        # ë settle ì¬ì´ê° ëë¬´ ë©ì§ ìê³  ì ë¹í ë© ë,
+        # ëì ë settle ì¬ì´ë¥¼ ëê°ì ì¼ë¡ ê·¸ì´, ê·¸ ìì ë¤ë¥¸ íë ì´ì´ì settleì´ ìëì§ íë³
+        # ìë¤ë©´ ìµë ê¸¸ì´ë³´ë¤ ìê², ìë¤ë©´ ìµë ê¸¸ì´ë¡ ì¤ì 
         gradient = (settle1[0] - settle2[0]) / (settle1[1] - settle2[1])
         while not (settle1[0] == min(settle2[0], settle2[1]) or settle1[1] == min(settle2[0], settle2[1])):
-            # 두 settle을 이은 직선의 기울기에 따라 좌표 계산이 달라짐
+            # ë settleì ì´ì ì§ì ì ê¸°ì¸ê¸°ì ë°ë¼ ì¢í ê³ì°ì´ ë¬ë¼ì§
             if gradient > 0 : 
                 settle1 = (settle1[0] - 1, settle1[1] - 1)
                 if settle1 in other_settles and other_settles[settle1]['owner'] != my_id:
@@ -59,7 +67,7 @@ def escape_Heuristic(board: GameBoard) -> int:
                 if settle1 in other_settles and other_settles[settle1]['owner'] != my_id:
                     return MAX_ROAD - 1
             else:
-                # 두 settle이 적당히 멀면서 한 수직선 상에 있음 -> 최대 길이 불가, 작게 설정
+                # ë settleì´ ì ë¹í ë©ë©´ì í ìì§ì  ìì ìì -> ìµë ê¸¸ì´ ë¶ê°, ìê² ì¤ì 
                 return MAX_ROAD - 1
         return MAX_ROAD
     else:
@@ -99,12 +107,12 @@ class Agent:  # Do not change the name of this class!
         
         possible_actions = []
         
-        # 1) UPGRADE - 최장경로 10 이상이면 우선 탈출, or 가능하다면 UPGRADE 먼저 시행
+        # 1) UPGRADE - ìµì¥ê²½ë¡ 10 ì´ìì´ë©´ ì°ì  íì¶, or ê°ë¥íë¤ë©´ UPGRADE ë¨¼ì  ìí
         if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
             possible_actions += [(0, UPGRADE(v))
                                 for v in board.get_applicable_cities()]
             
-        # 2) VILLAGE - 역시 10 이상일 시 탈출을 위함
+        # 2) VILLAGE - ì­ì 10 ì´ìì¼ ì íì¶ì ìí¨
         if board.get_longest_route() >= escaping_routes:
             possible_actions += [(1, VILLAGE(v))
                                 for v in board.get_applicable_villages()]
@@ -116,7 +124,7 @@ class Agent:  # Do not change the name of this class!
         # 4) PASS
         possible_actions += [(5, PASS())]
         
-        # 5) TRADE - WOOD, BRICK으로의 교환만 생각할것임
+        # # 5) TRADE - WOOD, BRICKì¼ë¡ì êµíë§ ìê°í ê²ì
         # possible_actions += [(5, TRADE(r, r2))
         #                         for r in ['Ore', 'Wool', 'Grain']
         #                         if board.get_trading_rate(r) > 0
@@ -141,8 +149,8 @@ class Agent:  # Do not change the name of this class!
         initial_heuristic = Heuristic(board)
         
         board.set_to_state(initial_state)
-        self.escaping_routes = MAX_ROAD #escape_Heuristic(board)
-        #print(self.escaping_routes)
+        self.escaping_routes = escape_Heuristic(board)
+        print(self.escaping_routes)
         
         frontier.put(Priority(initial_state['pathCost'] + initial_heuristic, initial_state))
         reached = {initial_state['state_id']: initial_state['pathCost'] + initial_heuristic}
@@ -178,7 +186,8 @@ class Agent:  # Do not change the name of this class!
                 child['pathCost'] = pathCost
                 frontier.put(Priority(fScore, child))
                 reached[child['state_id']] = fScore
-            frontier = topK(frontier, 1100)
+                
+            frontier = topK(frontier, 1000)
 
         # Return empty list if search fails.
         return []
