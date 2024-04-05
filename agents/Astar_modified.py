@@ -178,7 +178,7 @@ class Agent:  # Do not change the name of this class!
                 child['pathCost'] = pathCost
                 frontier.put(Priority(fScore, child))
                 reached[child['state_id']] = fScore
-            frontier = topK(frontier, 1200)
+            frontier = topK(frontier, 1100)
 
         # Return empty list if search fails.
         return []
