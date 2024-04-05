@@ -96,25 +96,28 @@ class Agent:  # Do not change the name of this class!
             pathCost = state['pathCost'] + cost
             h = _Heuristic(board)
             fCost = pathCost+h
-            expanded.append(Priority(fCost, child))
             child['parent'] = (state, action)
             child['pathCost'] = pathCost
+            
+            # set PathMax Heuristic
+            child['fCost'] = max(fCost, state['fCost'])
+            expanded.append(Priority(child['fCost'], child))
 
         if len(expanded) == 0:
             return [], INF
         
         for s in expanded:
-            successors.put(Priority((), s.data))
+            successors.put(s)
         
         while True:
-            best = expanded.get().data
-            if best['pathCost'] > fLimit:
-                return {}, best['pathCost']
-            alternative = expanded.get().data
-            result, best['pathCost'] = RBFS(board, best, min(fLimit, alternative['pathCost']), escaping_routes)
+            best = successors.get().data
+            if best['fCost'] > fLimit:
+                return [], best['fCost']
+            alternative = successors.get().data
+            result, best['fCost'] = self.RBFS(board, best, min(fLimit, alternative['fCost']))
 
-            if result != {}:
-                return result, best['pathCost']
+            if result != []:
+                return result, best['fCost']
     
     def search_for_longest_route(self, board: GameBoard) -> List[Action]:
         """
@@ -124,68 +127,11 @@ class Agent:  # Do not change the name of this class!
         :param board: Game board to manipulate
         :return: List of actions
         """
-        
-
-
-        # # Set up frontiers as FIFO Queue
-        # frontier = PriorityQueue()
-        # Read initial state
         initial_state = board.get_initial_state()
-        # frontier.put(Priority(0 + _Heuristic(board), initial_state))
+        board.set_to_state(initial_state)
+        
         initial_state['pathCost'] = 0
-        escaping_routes = 9
-        RBFS(board, initial_state, float("inf"), escaping_routes)
-
-        # # Until the frontier is nonempty,
-        # while not frontier.empty():
-        #     # Read a state to search further
-        #     state = frontier.get().data
-        #     board.set_to_state(state)
-
-        #     # If it is the game end, then read action sequences by back-tracing the actions.
-        #     if board.is_game_end():
-        #         return _make_action_sequence(state)
-            
-        #     # Build applicable actions
-        #     possible_actions = []
-            
-        #     # 1) UPGRADE - ������ 10 �̻��̸� �켱 Ż��, �� ó������ ������ village
-        #     if len(board.get_applicable_cities()) > 1 or board.get_longest_route() >= escaping_routes:
-        #         possible_actions += [(1, UPGRADE(v))
-        #                             for v in board.get_applicable_cities()]
-                
-        #     # 2) VILLAGE - ���� 10 �̻��� �� Ż���� ����
-        #     if board.get_longest_route() >= escaping_routes:
-        #         possible_actions += [(1, VILLAGE(v))
-        #                             for v in board.get_applicable_villages()]
-                
-        #     # 2) ROAD
-        #     possible_actions += [(1, ROAD(road))
-        #                          for road in board.get_applicable_roads()]
-            
-        #     # 3) PASS
-        #     possible_actions += [(3, PASS())]
-            
-        #     # 4) TRADE - WOOD, BRICK������ ��ȯ�� �����Ұ���
-        #     possible_actions += [(5, TRADE(r, r2))
-        #                           for r in RESOURCES
-        #                           if board.get_trading_rate(r) > 0
-        #                           for r2 in ['Lumber', 'Brick']
-        #                           if r != r2]
-
-        #     # Expand next states
-        #     for cost, action in possible_actions:
-        #         child = board.simulate_action(state, action)
-        #         pathCost = _pathCost(child) + cost
-        #         h = _Heuristic(board)
-
-        #         # If the next state is already reached, then pass to the next action
-        #         if child['state_id'] in reached and pathCost + h >= reached[child['state_id']]:
-        #             continue
-                
-        #         # Add parent information to the next state
-        #         child['parent'] = (state, action, cost)
-        #         frontier.put(Priority(pathCost + h, child))
-        #         reached[child['state_id']] = pathCost + h
-        # # Return empty list if search fails.
-        # return []
+        initial_state['fCost'] = initial_state['pathCost'] + _Heuristic(board)
+        escaping_routes = 10
+        
+        return self.RBFS(board, initial_state, float("inf"), escaping_routes)
