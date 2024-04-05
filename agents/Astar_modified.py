@@ -110,18 +110,18 @@ class Agent:  # Do not change the name of this class!
                                 for v in board.get_applicable_villages()]
             
         # 3) ROAD
-        possible_actions += [(1, ROAD(road))
+        possible_actions += [(2, ROAD(road))
                                 for road in board.get_applicable_roads()]
         
         # 4) PASS
-        possible_actions += [(3, PASS())]
+        possible_actions += [(5, PASS())]
         
         # 5) TRADE - WOOD, BRICK으로의 교환만 생각할것임
-        possible_actions += [(5, TRADE(r, r2))
-                                for r in ['Ore', 'Wool', 'Grain']
-                                if board.get_trading_rate(r) > 0
-                                for r2 in ['Lumber', 'Brick']
-                                if r != r2]
+        # possible_actions += [(5, TRADE(r, r2))
+        #                         for r in ['Ore', 'Wool', 'Grain']
+        #                         if board.get_trading_rate(r) > 0
+        #                         for r2 in ['Lumber', 'Brick']
+        #                         if r != r2]
         return possible_actions
     
     def search_for_longest_route(self, board: GameBoard) -> List[Action]:
